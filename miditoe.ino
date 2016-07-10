@@ -142,7 +142,7 @@ void loop()
             tapIntervals[tapIntervalsIndex++] = deltaTapButtonMillis; //add the current interval to the back of the vector storage
             cummulativeButtonTapsMillis = 0;
             numButtonTaps = 0;
-            Serial.print("\n");
+            //Serial.print("\n");
             for(int i=0; i<tapsToAverage; i++) {
               if(tapIntervals[i] != 0){
                 cummulativeButtonTapsMillis += tapIntervals[i];
@@ -174,7 +174,8 @@ void loop()
       tempoButtonState = 0;
       //Serial.println(tempoButtonState);
     }
-    if(deltaTapButtonMillis > 1500){
+    //if we've allowed time for at least 3 taps, allow tapSend to happen.
+    if(deltaTapButtonMillis > (3 * interval)){
       receivingTaps = 0; 
     }
   }
