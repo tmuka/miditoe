@@ -34,10 +34,12 @@
 // Pin 11: Teensy 2.0 has the LED on pin 11
 // Pin  6: Teensy++ 2.0 has the LED on pin 6
 // Pin 13: Teensy 3.0 has the LED on pin 13
-const int tapPin =  A1; //15;      // the number of the tap transistor pin
 const int presetPin =  A0; //14;      // the number of the tap transistor pin
+const int tapPin =  A1; //15;      // the number of the tap transistor pin
+const int tapPin2 =  A2; //15;      // the number of the tap transistor pin
 const int ledPin =  13;      // the number of the LED pin
-const int led2Pin =  9;      // the number of the LED pin
+const int ledPin2 =  9;      // the number of the LED pin
+const int tempoLED = A3;    //the led on the outside of the enclosure
 const int tempoButton = A5;    // set tempo button
 const int presetButton = A4;    // set preset button
 unsigned int tempoButtonState = 0; // true when button is pressed
@@ -81,8 +83,10 @@ void setup() {
 
   // set the digital pin as output:
   pinMode(ledPin, OUTPUT);
-  pinMode(led2Pin, OUTPUT);
+  pinMode(ledPin2, OUTPUT);
   pinMode(tapPin, OUTPUT);
+  pinMode(tapPin2, OUTPUT);
+  pinMode(tempoLED, OUTPUT);
   pinMode(tempoButton, INPUT_PULLUP);
   pinMode(presetButton, INPUT_PULLUP);
   //attachInterrupt(digitalPinToInterrupt(tempoButton), processTapButton, LOW);
@@ -183,7 +187,9 @@ void loop()
   if(deltaMillis > tap_hold_ms) {
     //release tap
     digitalWrite(tapPin, LOW);
+    digitalWrite(tapPin2, LOW);
     digitalWrite(ledPin, LOW);
+    digitalWrite(tempoLED, LOW);
     tapping = 0;
   }
   if(deltaMillis >= interval) {
@@ -195,10 +201,12 @@ void loop()
       Serial.print("ms. "); Serial.print(ms2bpm(interval)); Serial.print("bpm. ");
       previousInterval = interval;
     }
-    digitalWrite(ledPin, HIGH); 
+    digitalWrite(ledPin, HIGH);  //flash led in tempo
+    digitalWrite(tempoLED, HIGH);  //flash outer led
     if(tapsSent <= tapsToAverage){
        // begin tap down
       digitalWrite(tapPin, HIGH);
+      digitalWrite(tapPin2, HIGH);
       tapsSent++;
       tapping = 1;
       Serial.print(" * ");
