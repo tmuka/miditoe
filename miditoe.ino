@@ -1,6 +1,4 @@
 #include <Arduino.h>
-//#include <Bounce.h>
-//#include <vector>
 
 /* Tony Tap Tempo
 
@@ -28,6 +26,8 @@ The circuit:
 
 http://www.arduino.cc/en/Tutorial/BlinkWithoutDelay
 */
+
+const int DEBUG = 1;
 
 // constants won't change. Used here to set pin numbers:
 // Pin 13: Arduino has an LED connected on pin 13
@@ -66,19 +66,20 @@ unsigned long previousTapButtonMillis = 0;        // will store last time LED wa
 unsigned long cummulativeButtonTapsMillis = 0;
 unsigned int numButtonTaps = 0;
 
-const unsigned int tapsToAverage = 3;
+const unsigned int tapsToAverage = 1;
 unsigned long tapIntervals[tapsToAverage] = {}; //create an array to store the last x tap button intervals initialized to zero
 unsigned int tapIntervalsIndex = 0; //store current position we care about so we can loop only three array indexes
 
 // the follow variables is a long because the time, measured in miliseconds,
 // will quickly become a bigger number than can be stored in an int.
 unsigned long interval = 1000;           // interval at which to blink (milliseconds)
+unsigned long maybeNewInterval = 0; // temp placeholder to reduce math
 unsigned long previousInterval = 0;
 unsigned long loopLatency = 0; //how many ms the loop takes to execute so we can adjust our delay timing to compensate
 
 void setup() {
-	//Serial.begin(31250); //this rate was in a midi example
-	Serial.begin(38400); //this rate matches one of the options in the arduino serial monitor
+	Serial.begin(31250); //this rate was in a midi example
+	//Serial.begin(38400); //this rate matches one of the options in the arduino serial monitor
 	//noInterrupts(); //turn these off to make timing more consistent since we don't use them.
 
 	// set the digital pin as output:
@@ -108,6 +109,7 @@ void loop()
 	//int tapButtonValue = analogRead(tempoButton);
 	processTaps = false;
 	int tapButtonValue = digitalRead(tempoButton);   // read values from the tap tempo momentary switch
+	tapButtonValue = HIGH;
 	if(tapButtonValue == LOW){
 		receivingTaps = 1;
 		processTaps = true;  
@@ -125,7 +127,7 @@ void loop()
 		//do stuff, maybe we don't care about play flag...
 		if(pulse >= ppqn){
 			pulse = 0; // when pulse is 24 we restart the 0-23 interation pulse counter
-			processTaps = true;  
+			processTaps = true;
 		} 
 		pulse++;
 	}
@@ -137,7 +139,6 @@ void loop()
 		if(tempoButtonState != 1 && tapping != 1){
 			//initial press
 			tempoButtonState = 1; //button is pressed
-			//Serial.println(deltaTapButtonMillis);
 
 			if(deltaTapButtonMillis > minViableQuarter){
 				if(deltaTapButtonMillis < 3000){
@@ -146,21 +147,27 @@ void loop()
 					tapIntervals[tapIntervalsIndex++] = deltaTapButtonMillis; //add the current interval to the back of the vector storage
 					cummulativeButtonTapsMillis = 0;
 					numButtonTaps = 0;
-					//Serial.print("\n");
 					for(int i=0; i<tapsToAverage; i++) {
 						if(tapIntervals[i] != 0){
 							cummulativeButtonTapsMillis += tapIntervals[i];
 							numButtonTaps++;
-							//Serial.print(i);  Serial.print(". "); 
-							Serial.print(tapIntervals[i]);    Serial.print(" + ");
+							if(DEBUG){ 
+							  Serial.print(tapIntervals[i]);    Serial.print(" + ");
+							}
 						}
 					}
 					if(numButtonTaps > 0){
-						interval = cummulativeButtonTapsMillis/numButtonTaps;
+						maybeNewInterval = cummulativeButtonTapsMillis/numButtonTaps;
+            if(abs(maybeNewInterval - previousInterval) > (previousInterval/10) ){
+              interval = maybeNewInterval;
+            }
+
 					}
 
-					Serial.print(" = "); Serial.print( cummulativeButtonTapsMillis ); 
-					Serial.print(" / "); Serial.print( numButtonTaps ); Serial.print(" = ");  Serial.println(interval);
+					if(DEBUG){
+					  Serial.print(" = "); Serial.print( cummulativeButtonTapsMillis ); 
+					  Serial.print(" / "); Serial.print( numButtonTaps ); Serial.print(" = ");  Serial.println(interval);
+					}
 
 				} else {
 					Serial.print("\n deltaTapButtonMillis was greater than 3000, resetting tapIntervals to zeros \n");
@@ -170,13 +177,11 @@ void loop()
 				}
 
 				previousTapButtonMillis =  currentMillis;
-				//Serial.println(interval);
 			}
 		}
 	} else {
 		if(tempoButtonState == 1){
 			tempoButtonState = 0;
-			//Serial.println(tempoButtonState);
 		}
 		//if we've allowed time for at least 3 taps, allow tapSend to happen.
 		if(deltaTapButtonMillis > (3 * interval)){
@@ -194,39 +199,34 @@ void loop()
 	}
 	if(deltaMillis >= interval) {
 		previousMillis = currentMillis;     // save the last time you tapped the tempo
-		if(receivingTaps == 0 && interval != previousInterval){    
+    if(receivingTaps == 0 && interval != previousInterval){    
+    //if(receivingTaps == 0 && abs(interval - previousInterval) > 10){    
 			tapsSent = 0; 
-			//Serial.println(millis());
-			Serial.print("new interval: "); Serial.print(interval); 
+			Serial.print("\r\n new interval: "); Serial.print(interval); 
 			Serial.print("ms. "); Serial.print(ms2bpm(interval)); Serial.print("bpm. ");
 			previousInterval = interval;
 		}
 		digitalWrite(ledPin, HIGH);  //flash led in tempo
 		digitalWrite(tempoLED, HIGH);  //flash outer led
-		if(tapsSent <= tapsToAverage){
+		if(tapsSent <= tapsToAverage){ //  || DEBUG == 1){
 			// begin tap down
 			digitalWrite(tapPin, HIGH);
 			digitalWrite(tapPin2, HIGH);
 			tapsSent++;
 			tapping = 1;
 			Serial.print(" * ");
-			//Serial.println(millis()/interval);
-			//Serial.println(loopLatency);
 		}
 	}
 	/*
 	   int presetButtonValue = digitalRead(presetButton);
-	//Serial.println(presetButtonValue);
 	if(presetButtonValue < 50){
 	if(presetButtonState != 1){
 //initial press
 presetButtonState = 1; //button is pressed
-Serial.println(presetButton);
 }
 }
 else if(presetButtonState == 1){
 presetButtonState = 0;
-//Serial.println(presetButtonState);
 }
 */
 loopLatency = millis() - currentMillis;
